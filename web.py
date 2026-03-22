@@ -4,11 +4,13 @@ app = Flask(__name__)
 
 @app.route("/")
 def index():
-	link = "<h1>歡迎進入羅婉薰的網站</h1>"
-	link += "<a href=/mis>課程</a><hr>"
-	link += "<a href=/today>現在日期時間</a><hr>"
-	link += "<a href=/me>關於我</a><hr>"
-	return link
+	homepage = "<h1>羅婉薰Python網頁</h1>"
+	homepage += "<a href=/mis>MIS</a><br>"
+	homepage += "<a href=/today>顯示日期時間</a><br>"
+	homepage += "<a href=/welcome?nick=wanxun>傳送使用者暱稱</a><br>"
+	homepage += "<a href=/account>網頁表單傳值</a><br>"
+	homepage += "<a href=/about>婉薰簡介網頁</a><br>"
+	return homepage
 
 @app.route("/mis")
 def course():
@@ -19,9 +21,24 @@ def today():
 	now = datetime.now()
 	return render_template("today.html",datetime = str(now))
 
-@app.route("/me")
+@app.route("/about")
 def me():
 	return render_template("about.html")
+
+@app.route("/welcome", methods=["GET"])
+def welcome():
+    user = request.values.get("nick")
+    return render_template("welcome.html", name=user)
+
+@app.route("/account", methods=["GET", "POST"])
+def account():
+    if request.method == "POST":
+        user = request.form["user"]
+        pwd = request.form["pwd"]
+        result = "您輸入的帳號是：" + user + "; 密碼為：" + pwd 
+        return result
+    else:
+        return render_template("account.html")
 
 if __name__ == "__main__":
 	app.run(debug=True)
