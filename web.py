@@ -10,6 +10,7 @@ def index():
 	homepage += "<a href=/welcome?nick=wanxun>傳送使用者暱稱</a><br>"
 	homepage += "<a href=/account>網頁表單傳值</a><br>"
 	homepage += "<a href=/about>婉薰簡介網頁</a><br>"
+	homepage +="<a href=/calculator>次方與根號計算</a><br>"
 	return homepage
 
 @app.route("/mis")
@@ -41,6 +42,11 @@ def account():
         return result
     else:
         return render_template("account.html")
+
+
+@app.route("/calculator")
+def calculator():
+    return render_template("calculator.html")
 
 if __name__ == "__main__":
 	app.run(debug=True)

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>次方與根號計算器</title>
+    <style>
+        /* CSS：設定字體為標楷體並縮小尺寸 */
+        body {
+            /* 優先使用標楷體，若系統沒有則使用楷體 */
+            font-family: "標楷體", "DFKai-SB", "BiauKai", "STKaiti", serif;
+            margin: 0;
+            padding: 15px; /* 稍微縮小邊距 */
+            line-height: 1.5;
+            text-align: left;
+        }
+
+        h1 {
+            font-size: 20px;      /* 標題縮小 */
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        .input-group {
+            margin-bottom: 10px;
+            font-size: 16px;      /* 文字縮小 */
+        }
+
+        input, select {
+            padding: 2px;
+            font-size: 14px;      /* 輸入框文字縮小 */
+            width: 120px;         /* 寬度再縮小一點 */
+            font-family: inherit; /* 讓輸入框也套用標楷體 */
+        }
+
+        button {
+            padding: 2px 8px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            font-family: inherit;
+        }
+
+        #result {
+            font-size: 16px;
+            font-weight: bold;    /* 結果維持粗體 */
+            color: black;         /* 黑色字體 */
+        }
+    </style>
+</head>
+<body>
+
+    <h1>次方與根號計算</h1>
+
+    <div class="input-group">
+        x：<input type="number" id="numX">
+    </div>
+
+    <div class="input-group">
+        運算：
+        <select id="opt">
+            <option value="pow">∧ (次方)</option>
+            <option value="root">√ (根號)</option>
+        </select>
+    </div>
+
+    <div class="input-group">
+        y：<input type="number" id="numY">
+    </div>
+
+    <button onclick="doCalculate()">計算</button>
+
+    <div id="result"></div>
+
+    <script>
+        function doCalculate() {
+            const x = parseFloat(document.getElementById('numX').value);
+            const y = parseFloat(document.getElementById('numY').value);
+            const opt = document.getElementById('opt').value;
+            const resultDiv = document.getElementById('result');
+
+            if (isNaN(x) || isNaN(y)) {
+                resultDiv.innerText = "";
+                return;
+            }
+
+            let result;
+            if (opt === "pow") {
+                result = Math.pow(x, y);
+            } else if (opt === "root") {
+                if (y === 0) {
+                    result = "錯誤：不能開 0 次方根";
+                } else {
+                    result = Math.pow(x, 1 / y);
+                }
+            }
+
+            if (typeof result === 'number') {
+                // 比照截圖顯示方式，整數顯示 .0
+                let displayRes = Number.isInteger(result) ? result.toFixed(1) : result.toFixed(4);
+                resultDiv.innerHTML = "結果：" + displayRes;
+            } else {
+                resultDiv.innerText = result;
+            }
+        }
+    </script>
+
+</body>
+</html>
