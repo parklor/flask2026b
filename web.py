@@ -14,7 +14,7 @@ def index():
 
 @app.route("/mis")
 def course():
-	return "<h1>資訊管理導論</h1>"
+	return "<h1>資訊管理導論</h1><a href=/>返回首頁</a>"
 
 @app.route("/today")
 def today():
@@ -28,7 +28,9 @@ def me():
 @app.route("/welcome", methods=["GET"])
 def welcome():
     user = request.values.get("nick")
-    return render_template("welcome.html", name=user)
+    d = request.values.get("d")
+    c= request.values.get("c")
+    return render_template("welcome.html", name=user,dep = d,course = c)
 
 @app.route("/account", methods=["GET", "POST"])
 def account():
