@@ -1,5 +1,23 @@
 from flask import Flask, render_template, request
 from datetime import datetime
+
+import os
+import json
+import firebase_admin
+from firebase_admin import credentials, firestore
+
+# 判斷是在 Vercel 還是本地
+if os.path.exists('serviceAccountKey.json'):
+    # 本地環境：讀取檔案
+    cred = credentials.Certificate('serviceAccountKey.json')
+else:
+    # 雲端環境：從環境變數讀取 JSON 字串
+    firebase_config = os.getenv('FIREBASE_CONFIG')
+    cred_dict = json.loads(firebase_config)
+    cred = credentials.Certificate(cred_dict)
+
+firebase_admin.initialize_app(cred)
+
 app = Flask(__name__)
 
 @app.route("/")
@@ -11,6 +29,7 @@ def index():
 	homepage += "<a href=/account>網頁表單傳值</a><br>"
 	homepage += "<a href=/about>婉薰簡介網頁</a><br>"
 	homepage +="<a href=/calculator>次方與根號計算</a><br>"
+	homepage += "<br><a href=/read>讀取Firestore資料</a><br>"
 	return homepage
 
 @app.route("/mis")
@@ -47,6 +66,16 @@ def account():
 @app.route("/calculator")
 def calculator():
     return render_template("calculator.html")
+
+@app.route("/read")
+def read():
+    Result = ""
+    db = firestore.client()
+    collection_ref = db.collection("靜宜資管")    
+    docs = collection_ref.get()    
+    for doc in docs:         
+        Result += str(doc.to_dict()) + "<br>"    
+    return Result
 
 if __name__ == "__main__":
 	app.run(debug=True)
