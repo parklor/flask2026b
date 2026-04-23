@@ -31,8 +31,74 @@ def index():
     homepage += "<a href=/about>婉薰簡介網頁</a><br>"
     homepage += "<a href=/calculator>次方與根號計算</a><br>"
     homepage += "<br><a href=/read2>進入靜宜資管老師查詢系統(互動輸入)</a><br>"
-    homepage += "<br><a href=/sp1>爬曲子青老師本學期課程</a><br>"
+    homepage += "<br><a href=/sp1>爬取子青老師本學期課程</a><br>"
+    homepage += "<br><a href=/movie1>爬取即將上映電影</a><br>"
     return homepage
+
+app = Flask(__name__)
+
+@app.route("/movie1")
+def movie1():
+    keyword = request.args.get("keyword", "")
+    
+    R = f'''
+        <div style="font-family: sans-serif; padding: 20px;">
+            <h2>電影查詢系統</h2>
+            <form action="/movie1" method="get">
+                <input type="text" name="keyword" placeholder="請輸入片名關鍵字" value="{keyword}">
+                <button type="submit">搜尋</button>
+            </form>
+            <hr>
+    '''
+    
+    url = "https://www.atmovies.com.tw/movie/next/"
+    try:
+        Data = requests.get(url)
+        Data.encoding = "utf-8"
+        sp = BeautifulSoup(Data.text, "html.parser")
+        result = sp.select(".filmListAllX li")
+        
+        for item in result:
+            a_tag = item.find("a")
+            img_tag = item.find("img")
+
+            if a_tag and img_tag:
+                movie_name = img_tag.get("alt")
+                
+                if keyword.lower() in movie_name.lower():
+                    movie_url = "https://www.atmovies.com.tw" + a_tag.get("href")
+                    img_src = "https://www.atmovies.com.tw" + img_tag.get("src")
+                    
+                
+                    R += f'''
+                        <div style="margin-bottom: 40px;">
+                            <h3>{movie_name}</h3>
+                            
+                            <a href="{img_src}" target="_blank">
+                                <img src="{img_src}" width="200" title="點擊看大圖" style="border: 2px solid #ddd; border-radius: 5px;">
+                            </a>
+                            
+                            <br>
+                            
+                            <p>
+                                <a href="{movie_url}" target="_blank" style="text-decoration: none; color: #E44D26; font-weight: bold;">
+                                    🔗 點此查看《{movie_name}》詳細介紹
+                                </a>
+                            </p>
+                            <hr>
+                        </div>
+                    '''
+    except Exception as e:
+        R += f"發生錯誤：{e}"
+
+    R += "</div>"
+    return R
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
+if __name__ == "__main__":
+    app.run(debug=True)
 
 @app.route("/sp1")
 def spider():
