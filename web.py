@@ -39,66 +39,112 @@ def index():
     homepage += "<a href=/account>網頁表單傳值</a><br>"
     homepage += "<a href=/about>婉薰簡介網頁</a><br>"
     homepage += "<a href=/calculator>次方與根號計算</a><br>"
-    homepage += "<br><a href=/read2>進入靜宜資管老師查詢系統(互動輸入)</a><br>"
+    homepage += "<br><a href=/read2>進入靜宜資管老師查詢系統</a><br>"
     homepage += "<br><a href=/sp1>爬取子青老師本學期課程</a><br>"
-    homepage += "<br><a href=/movie1>線上爬取電影(不存資料庫)</a><br>"
-    homepage += "<br><a href=/spidermovie>電影資料庫查詢(編號/海報/日期)</a><br>"
+    homepage += "<br><a href=/movie1>線上爬取電影</a><br>"
+    homepage += "<br><a href=/spidermovie>電影資料庫(爬取、更新與查詢)</a><br>"
     return homepage
 
-@app.route("/spidermovie")
+@app.route("/spidermovie", methods=["GET", "POST"])
 def spidermovie():
-    keyword = request.args.get("keyword", "").strip()
     db = firestore.client()
+    keyword = request.values.get("keyword", "").strip()
+    action = request.values.get("action", "")
     
-    # 建立搜尋表單介面
+    message = ""
+    
+    # --- 功能：爬取並存入資料庫 ---
+    if action == "update":
+        url = "http://www.atmovies.com.tw/movie/next/"
+        Data = requests.get(url)
+        Data.encoding = "utf-8"
+        sp = BeautifulSoup(Data.text, "html.parser")
+        
+        try:
+            lastUpdate = sp.find(class_="smaller09").text.replace("更新時間：", "")
+        except:
+            lastUpdate = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        result = sp.select(".filmListAllX li")
+        total = 0 
+
+        for item in result:
+            try:
+                total += 1
+                movie_id = item.find("a").get("href").replace("/movie/", "").replace("/", "")
+                title = item.find(class_="filmtitle").text.strip()
+                picture = "https://www.atmovies.com.tw" + item.find("img").get("src")
+                hyperlink = "https://www.atmovies.com.tw" + item.find("a").get("href")
+                
+                runtime_tag = item.find(class_="runtime")
+                showDate = runtime_tag.text[5:15] if runtime_tag else "未知"
+                
+                doc = {
+                    "title": title,
+                    "picture": picture,
+                    "hyperlink": hyperlink,
+                    "showDate": showDate,
+                    "lastUpdate": lastUpdate
+                }
+                db.collection("電影2B").document(movie_id).set(doc)
+            except:
+                continue
+        message = f'''<div style="background-color: #d4edda; padding: 10px; border-radius: 5px; color: #155724;">
+                        ✅ 更新成功！最近更新日期：{lastUpdate}，共爬取 {total} 部電影。
+                      </div>'''
+
+    # --- 建立 UI 介面 ---
     R = f'''<div style="font-family: sans-serif; padding: 20px;">
-            <h2>電影資料庫查詢 (Firestore)</h2>
+            <h2>電影資料庫管理系統</h2>
+            
+            <div style="margin-bottom: 20px;">
+                <form action="/spidermovie" method="post" style="display: inline-block; margin-right: 10px;">
+                    <input type="hidden" name="action" value="update">
+                    <button type="submit" style="background-color: #007bff; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer;">
+                        🔄 爬取即將上映電影並更新資料庫
+                    </button>
+                </form>
+            </div>
+            
+            {message}
+            
+            <hr>
+            <h3>資料庫查詢</h3>
             <form action="/spidermovie" method="get">
                 <input type="text" name="keyword" placeholder="請輸入片名關鍵字" value="{keyword}">
                 <button type="submit">從資料庫查詢</button>
             </form>
-            <p>※ 提示：輸入關鍵字搜尋，留空則顯示全部。</p>
-            <hr>'''
+            <br>'''
 
-    # 從 Firestore 讀取「電影2B」集合中的所有文件
+    # --- 功能：查詢資料庫 ---
     docs = db.collection("電影2B").get()
-    
-    res = '<table border="1" style="border-collapse: collapse; width: 100%; text-align: center;">'
-    res += '<tr style="background-color: #f2f2f2;"><th>編號</th><th>片名</th><th>海報</th><th>介紹頁</th><th>上映日期</th></tr>'
+    res_table = '<table border="1" style="border-collapse: collapse; width: 100%; text-align: center;">'
+    res_table += '<tr style="background-color: #f2f2f2;"><th>編號</th><th>片名</th><th>海報</th><th>介紹頁</th><th>上映日期</th></tr>'
     
     count = 0
     for doc in docs:
         movie_data = doc.to_dict()
         title = movie_data.get("title", "")
-        
-        # 關鍵字篩選 (不分大小寫)
         if keyword.lower() in title.lower():
             count += 1
-            movie_id = doc.id
-            picture = movie_data.get("picture", "")
-            hyperlink = movie_data.get("hyperlink", "")
-            showDate = movie_data.get("showDate", "未知")
-            
-            res += f'''<tr>
-                        <td>{movie_id}</td>
-                        <td>{title}</td>
-                        <td><img src="{picture}" width="100"></td>
-                        <td><a href="{hyperlink}" target="_blank">點此查看</a></td>
-                        <td>{showDate}</td>
-                      </tr>'''
+            res_table += f'''<tr>
+                            <td>{doc.id}</td>
+                            <td>{title}</td>
+                            <td><img src="{movie_data.get("picture")}" width="100"></td>
+                            <td><a href="{movie_data.get("hyperlink")}" target="_blank">點此查看</a></td>
+                            <td>{movie_data.get("showDate")}</td>
+                          </tr>'''
+    res_table += "</table>"
     
-    res += "</table>"
-    
-    if count == 0:
+    if count > 0:
+        R += f"<p>查詢結果：找到 {count} 筆符合的資料。</p>" + res_table
+    elif keyword != "":
         R += f"<p>找不到包含「{keyword}」的電影資料。</p>"
-    else:
-        R += f"<p>找到 {count} 筆符合的資料：</p>" + res
 
     R += "<br><a href=/>返回首頁</a></div>"
     return R
 
-# --- 以下保留原本的其他功能 ---
-
+# --- 其他功能保持不變 ---
 @app.route("/movie1")
 def movie1():
     keyword = request.args.get("keyword", "")
@@ -201,6 +247,5 @@ def search_result():
     res += "</table>"
     return res + f"<p>共 {count} 筆</p><a href='/'>首頁</a>"
 
-# 3. 執行
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
