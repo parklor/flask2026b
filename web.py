@@ -5,12 +5,18 @@ import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 import requests
+import urllib3
+import time
 from bs4 import BeautifulSoup
 
+
+# --- 1. 基礎設定與初始化 ---
+
 # 忽略 SSL 憑證警告
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings()
 
-# 1. 初始化 Firebase (只做一次)
+# 初始化 Firebase (只做一次)
 cred = None
 if os.path.exists('serviceAccountKey.json'):
     cred = credentials.Certificate('serviceAccountKey.json')
@@ -25,10 +31,10 @@ else:
 if cred and not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
 
-# 2. 初始化 Flask
+# 初始化 Flask (整個檔案只需要這一次)
 app = Flask(__name__)
 
-# --- 路由定義區塊 ---
+# --- 2. 路由定義區塊 ---
 
 @app.route("/")
 def index():
@@ -43,7 +49,142 @@ def index():
     homepage += "<br><a href=/sp1>爬取子青老師本學期課程</a><br>"
     homepage += "<br><a href=/movie1>線上爬取電影</a><br>"
     homepage += "<br><a href=/spidermovie>電影資料庫(爬取、更新與查詢)</a><br>"
+    homepage += "<br><a href=/road>台中市十大肇事路口</a><br>"
+    homepage += "<br><a href=/Weath>各縣市天氣預報</a><br>"
     return homepage
+
+@app.route("/Weath")
+def weath():
+    # 1. 標題 (記得名字改為你的)
+    R = "<h1>台中市天氣概況</h1><br>"
+    
+    # 2. 設定參數 (Web 版不建議用 input，我們先寫死臺中市)
+    city = "臺中市"
+    token = "rdec-key-123-45678-011121314" # 請確認這是正確的 Authorization Key
+    
+    # 修正後的 URL (不要重複拼接)
+    url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization={token}&format=JSON&locationName={city}"
+
+    try:
+        # 3. 抓取資料
+        data = requests.get(url, verify=False)
+        json_data = json.loads(data.text)
+        
+        # 4. 解析資料 (照老師給的層次抓取)
+        # 這裡要確認 API 回傳的結構是否符合
+        location_data = json_data["records"]["location"][0]
+        weather_state = location_data["weatherElement"][0]["time"][0]["parameter"]["parameterName"]
+        rain_chance = location_data["weatherElement"][1]["time"][0]["parameter"]["parameterName"]
+        
+        # 5. 把結果組合進 R，網頁才看得到
+        R += f"目前城市：{city}<br>"
+        R += f"天氣狀況：{weather_state}<br>"
+        R += f"降雨機率：{rain_chance}%<br>"
+        
+    except Exception as e:
+        R += f"天氣資料讀取失敗，原因：{e}"
+
+    # 6. 回傳結果
+    return R
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
+
+@app.route("/road")
+def op():
+    # CSS 樣式與標題
+    R = """
+    <style>
+        body { font-family: "Microsoft JhengHei", sans-serif; margin: 40px; background-color: #f9f9f9; }
+        table { width: 90%; border-collapse: collapse; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        th, td { border: 1px solid #ddd; text-align: left; padding: 12px; }
+        th { background-color: #007bff; color: white; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+        h1 { color: #333; }
+    </style>
+    <h1>台中市十大肇事路口 (113年10月)</h1>
+    <p>製表人：羅婉薰</p>
+    <table>
+        <tr>
+            <th>區域</th>
+            <th>路口名稱</th>
+            <th>總件數</th>
+            <th>主要肇因</th>
+        </tr>
+    """
+    
+    url = "https://datacenter.taichung.gov.tw/swagger/OpenData/a1b899c0-511f-4e3d-b22b-814982a97e41"
+    headers = {'User-Agent': "Mozilla/5.0"}
+
+    try:
+        response = requests.get(url, headers=headers, verify=False, timeout=10)
+        data_list = response.json()
+        
+        for item in data_list:
+            area = item.get("區序", "未知")
+            location = item.get("路口名稱", "未知")
+            count = item.get("總件數", "0")
+            reason = item.get("主要肇因", "不詳")
+            
+            R += f"<tr><td>{area}</td><td>{location}</td><td>{count}</td><td>{reason}</td></tr>"
+            
+    except Exception as e:
+        R += f"<tr><td colspan='4'>暫時無法取得資料，錯誤原因：{e}</td></tr>"
+
+    R += "</table><br><a href='/sp1'>前往天氣查詢</a>"
+    return R
+
+
+# --- 功能二：縣市天氣查詢 ---
+@app.route("/sp1")
+def weather_app():
+    city = request.args.get("city", "").replace("台", "臺").strip()
+    
+    R = """
+    <style>
+        body { font-family: "Microsoft JhengHei", sans-serif; text-align: center; margin-top: 50px; }
+        .box { display: inline-block; padding: 20px; border: 1px solid #ccc; border-radius: 10px; background: #fff; }
+        input { padding: 8px; border-radius: 5px; border: 1px solid #ddd; }
+        input[type="submit"] { background: #28a745; color: white; border: none; cursor: pointer; }
+    </style>
+    <div class="box">
+        <h2>縣市天氣查詢系統</h2>
+        <form action="/sp1" method="GET">
+            輸入縣市：<input type="text" name="city" placeholder="例如：臺中市" required>
+            <input type="submit" value="查詢">
+        </form>
+    """
+
+    if city:
+        # ⚠️ 這裡請務必換成你個人的授權碼
+        token = "rdec-key-123-45678-011121314" 
+        url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization={token}&format=JSON&locationName={city}"
+        
+        try:
+            response = requests.get(url, verify=False)
+            if response.status_code == 200:
+                data = response.json()
+                if data["records"]["location"]:
+                    loc = data["records"]["location"][0]
+                    weather = loc["weatherElement"][0]["time"][0]["parameter"]["parameterName"]
+                    rain = loc["weatherElement"][1]["time"][0]["parameter"]["parameterName"]
+                    
+                    R += f"<hr><h3>{city} 天氣結果</h3>"
+                    R += f"天氣狀態：{weather}<br>降雨機率：{rain}%"
+                else:
+                    R += f"<p style='color:red;'>找不到「{city}」資料。</p>"
+            else:
+                R += f"<p style='color:red;'>連線失敗，請檢查 Token。</p>"
+        except Exception as e:
+            R += f"<p style='color:red;'>錯誤：{e}</p>"
+
+    R += "</div><br><br><a href='/road'>前往肇事路口統計</a>"
+    return R
+
+# --- 啟動伺服器 ---
+if __name__ == "__main__":
+    app.run(host="127.0.0.1", port=5000, debug=True)
 
 @app.route("/spidermovie", methods=["GET", "POST"])
 def spidermovie():
@@ -144,7 +285,6 @@ def spidermovie():
     R += "<br><a href=/>返回首頁</a></div>"
     return R
 
-# --- 其他功能保持不變 ---
 @app.route("/movie1")
 def movie1():
     keyword = request.args.get("keyword", "")
@@ -247,5 +387,6 @@ def search_result():
     res += "</table>"
     return res + f"<p>共 {count} 筆</p><a href='/'>首頁</a>"
 
+# 將 app.run 放到最後面，確保所有路由都已註冊
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
