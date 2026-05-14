@@ -54,6 +54,7 @@ def index():
     homepage += "<br><a href=/road>台中市十大肇事路口</a><br>"
     homepage += "<br><a href=/Weath>各縣市天氣預報</a><br>"
     homepage += "<br><a href=/rate>本週新片爬取</a><br>"
+    homepage += "<br><a href=/webhook>查詢層級電影</a><br>"
     return homepage
 
 @app.route("/webhook", methods=["POST"])
@@ -67,7 +68,19 @@ def webhook():
     
     if (action == "rateChoice"):
             rate =  req["queryResult"]["parameters"]["rate"]
-            info = "我是羅婉薰設計的機器人,您選擇的電影分級是：" + rate
+              info = "我是楊子青開發的電影聊天機器人,您選擇的電影分級是：" + rate + "，相關電影：\n"
+              db = firestore.client()
+        collection_ref = db.collection("電影含分級")
+        docs = collection_ref.get()
+        result = ""
+        for doc in docs:
+            dict = doc.to_dict()
+            if rate in dict["rate"]:
+                result += "片名：" + dict["title"] + "\n"
+                result += "介紹：" + dict["hyperlink"] + "\n\n"
+        info += result
+    return make_response(jsonify({"fulfillmentText": info}))
+
 
     return make_response(jsonify({"fulfillmentText": info}))
 
