@@ -1,8 +1,10 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request,make_response, jsonify
 from datetime import datetime
+
 import os
 import json
 import firebase_admin
+
 from firebase_admin import credentials, firestore
 import requests
 import urllib3
@@ -53,6 +55,16 @@ def index():
     homepage += "<br><a href=/Weath>各縣市天氣預報</a><br>"
     homepage += "<br><a href=/rate>本週新片爬取</a><br>"
     return homepage
+
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    # build a request object
+    req = request.get_json(force=True)
+    # fetch queryResult from json
+    action =  req.get("queryResult").get("action")
+    msg =  req.get("queryResult").get("queryText")
+    info = "動作：" + action + "； 查詢內容：" + msg
+    return make_response(jsonify({"fulfillmentText": info}))
 
 @app.route("/rate")
 def rate():
