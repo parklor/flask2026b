@@ -58,16 +58,14 @@ def index():
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    # build a request object
     req = request.get_json(force=True)
-    # fetch queryResult from json
-    action =  req["queryResult"]["action"]
-    #msg =  req["queryResult"]["queryText"]
-    #info = "我是羅婉薰設計的機器人,動作：" + action + "； 查詢內容：" + msg
+    action = req["queryResult"]["action"]
     
     if (action == "rateChoice"):
-        rate =  req["queryResult"]["parameters"]["rate"]
-        info = "我是楊子青開發的電影聊天機器人,您選擇的電影分級是：" + rate + "，相關電影：\n"
+        rate = req["queryResult"]["parameters"]["rate"]
+        # 根據你的要求，將開發者姓名修正為羅婉薰
+        info = "我是羅婉薰開發的電影聊天機器人，您選擇的電影分級是：" + rate + "，相關電影：\n"
+        
         db = firestore.client()
         collection_ref = db.collection("電影含分級")
         docs = collection_ref.get()
@@ -75,14 +73,23 @@ def webhook():
         result = ""
         for doc in docs:
             movie_data = doc.to_dict()
-            if rate in dict["rate",""]:
-                result += "片名：" +  movie_data["title"] + "\n"
-                result += "介紹：" +  movie_data["hyperlink"] + "\n\n"
+            # 修正點 A：原程式碼寫成 dict["rate",""] 是錯誤語法
+            # 修正點 B：應使用 movie_data.get("rate") 來讀取資料庫欄位
+            db_rate = movie_data.get("rate", "")
+            
+            if rate in db_rate:
+                result += "🎬 片名：" + movie_data.get("title", "無題") + "\n"
+                result += "🔗 介紹：" + movie_data.get("hyperlink", "無連結") + "\n\n"
+        
+        # 修正點 C：如果沒找到電影，給予提示
+        if not result:
+            result = "目前找不到該分級的相關電影。"
+            
         info += result
         return make_response(jsonify({"fulfillmentText": info}))
 
-
-        return make_response(jsonify({"fulfillmentText": info}))
+    # 預設回覆
+    return make_response(jsonify({"fulfillmentText": "收到請求，但未觸發電影查詢。"}))
 
 @app.route("/rate")
 def rate():
